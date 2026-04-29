@@ -6,10 +6,11 @@ import { authService } from '../services/api';
 import './AuthPages.css';
 
 const LoginPage = () => {
-  const [form, setForm]       = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { login }             = useAuth();
-  const navigate              = useNavigate();
+  const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,7 +21,7 @@ const LoginPage = () => {
       const { token, userId, fullName, email, role } = res.data;
       login(token, { userId, fullName, email, role });
       toast.success(`Welcome back, ${fullName}!`);
-      if (role === 'ADMIN')       navigate('/admin/dashboard');
+      if (role === 'ADMIN') navigate('/admin/dashboard');
       else if (role === 'INSTRUCTOR') navigate('/instructor/dashboard');
       else navigate('/');
     } catch (err) {
@@ -30,7 +31,6 @@ const LoginPage = () => {
 
   return (
     <div className="auth-page">
-      {/* Left Banner with image */}
       <div className="auth-banner">
         <div className="auth-banner-bg"
           style={{ backgroundImage: `url(https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=800&auto=format&fit=crop&q=80)` }} />
@@ -47,7 +47,6 @@ const LoginPage = () => {
         </div>
       </div>
 
-      {/* Right Form */}
       <div className="auth-form-panel">
         <div className="auth-form-box">
           <div className="auth-logo-small">E</div>
@@ -63,31 +62,27 @@ const LoginPage = () => {
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
-              <input className="form-input" type="password" placeholder="Your password"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })} />
+              <div className="password-wrapper">
+                <input 
+                  className="form-input password-input" 
+                  type={showPassword ? 'text' : 'password'} 
+                  placeholder="Your password"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })} 
+                />
+                <button 
+                  type="button" 
+                  className="password-eye"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
             <button type="submit" className="btn btn-primary btn-full btn-lg" disabled={loading}>
               {loading ? 'Signing in...' : '🔐 Sign In'}
             </button>
           </form>
-
-          {/* Test Credentials */}
-          <div className="test-creds">
-            <p className="test-title">Test Accounts</p>
-            <div className="cred-row">
-              <span className="badge badge-blue">STUDENT</span>
-              <code>student@edulearn.com / Student@123</code>
-            </div>
-            <div className="cred-row">
-              <span className="badge badge-purple">INSTRUCTOR</span>
-              <code>instructor@edulearn.com / Instructor@123</code>
-            </div>
-            <div className="cred-row">
-              <span className="badge badge-red">ADMIN</span>
-              <code>admin@edulearn.com / Admin@123</code>
-            </div>
-          </div>
 
           <p className="auth-switch">
             Don't have an account?{' '}

@@ -3,29 +3,30 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { courseService, enrollmentService, reviewService, lessonService } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import PaymentButton from '../components/PaymentButton'; // ✅ ADD THIS IMPORT
+import PaymentButton from '../components/PaymentButton';
 import './CourseDetail.css';
 
 const CATEGORY_IMAGES = {
-  'Programming':   'https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800&auto=format&fit=crop&q=80',
-  'Design':        'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&auto=format&fit=crop&q=80',
-  'Business':      'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
-  'default':       'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&auto=format&fit=crop&q=80',
+  'Programming': 'https://images.unsplash.com/photo-1587620962725-abab7fe55159?w=800&auto=format&fit=crop&q=80',
+  'Design': 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&auto=format&fit=crop&q=80',
+  'Business': 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=800&auto=format&fit=crop&q=80',
+  'default': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800&auto=format&fit=crop&q=80',
 };
 
 const CourseDetail = () => {
-  const { id }                                        = useParams();
+  const { id } = useParams();
   const { isLoggedIn, isStudent, isAdmin, isInstructor, user } = useAuth();
-  const navigate                                      = useNavigate();
-  const [course, setCourse]       = useState(null);
-  const [reviews, setReviews]     = useState([]);
-  const [summary, setSummary]     = useState(null);
-  const [lessons, setLessons]     = useState([]);
-  const [enrolled, setEnrolled]   = useState(false);
-  const [loading, setLoading]     = useState(true);
+  const navigate = useNavigate();
+  const [course, setCourse] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [lessons, setLessons] = useState([]);
+  const [enrolled, setEnrolled] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
-  const [myReview, setMyReview]   = useState({ rating: 5, comment: '' });
+  const [myReview, setMyReview] = useState({ rating: 5, comment: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -49,6 +50,17 @@ const CourseDetail = () => {
             const er = await enrollmentService.isEnrolled(id);
             setEnrolled(er.data.isEnrolled);
           } catch { setEnrolled(false); }
+          
+          // Check if user has already reviewed this course
+          try {
+            const myReviewsRes = await reviewService.getMyReviews();
+            let myReviewsList = myReviewsRes.data;
+            if (myReviewsList && myReviewsList.$values) {
+              myReviewsList = myReviewsList.$values;
+            }
+            const alreadyReviewed = myReviewsList?.some(r => r.courseId == id);
+            setHasReviewed(alreadyReviewed);
+          } catch { setHasReviewed(false); }
         }
       } catch {
         toast.error('Course not found');
@@ -56,10 +68,8 @@ const CourseDetail = () => {
       } finally { setLoading(false); }
     };
     load();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ✅ This is now only for free enrollment
   const handleFreeEnroll = async () => {
     if (!isLoggedIn()) { navigate('/login'); return; }
     setEnrolling(true);
@@ -74,22 +84,45 @@ const CourseDetail = () => {
 
   const handleReview = async (e) => {
     e.preventDefault();
+    
+    if (!myReview.comment.trim()) {
+      toast.error('Please write a review comment');
+      return;
+    }
+    
     setSubmitting(true);
     try {
-      await reviewService.submit({ courseId: parseInt(id), ...myReview });
-      toast.success('Review submitted! Waiting for admin approval.');
-      setMyReview({ rating: 5, comment: '' });
+      const response = await reviewService.submit({ 
+        courseId: parseInt(id), 
+        rating: myReview.rating,
+        comment: myReview.comment 
+      });
+      
+      console.log('Review response:', response.data);
+      
+      if (response.data && (response.data.reviewId || response.data)) {
+        toast.success('✨ Review submitted! Waiting for admin approval.');
+        setMyReview({ rating: 5, comment: '' });
+        setHasReviewed(true);
+        
+        // Refresh the reviews list to show pending status
+        const updatedReviews = await reviewService.getApproved(id);
+        setReviews(updatedReviews.data);
+      } else {
+        toast.error('Failed to submit review');
+      }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Review failed');
-    } finally { setSubmitting(false); }
+      console.error('Review error:', err);
+      toast.error(err.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) return <div className="loading-center" style={{ paddingTop: 100 }}><div className="spinner" /></div>;
-  if (!course)  return null;
+  if (!course) return null;
 
   const bannerImg = course.thumbnailUrl || CATEGORY_IMAGES[course.category] || CATEGORY_IMAGES['default'];
-
-  // ✅ Show enroll button only to Students or non-logged-in users
   const showEnrollButton = !isAdmin() && !isInstructor();
 
   return (
@@ -147,7 +180,7 @@ const CourseDetail = () => {
                   <div className="rating-bars">
                     {[5,4,3,2,1].map(n => {
                       const count = summary[`${['zero','one','two','three','four','five'][n]}Stars`] || 0;
-                      const pct   = summary.totalReviews > 0 ? (count / summary.totalReviews) * 100 : 0;
+                      const pct = summary.totalReviews > 0 ? (count / summary.totalReviews) * 100 : 0;
                       return (
                         <div key={n} className="rating-bar-row">
                           <span style={{ fontSize: 13, width: 8 }}>{n}</span>
@@ -184,7 +217,7 @@ const CourseDetail = () => {
                 )}
               </div>
 
-              {enrolled && (
+              {enrolled && !hasReviewed && (
                 <div className="review-form-wrap">
                   <h3>Write a Review</h3>
                   <form onSubmit={handleReview}>
@@ -211,6 +244,14 @@ const CourseDetail = () => {
                   </form>
                 </div>
               )}
+              
+              {enrolled && hasReviewed && (
+                <div style={{ padding: 16, background: 'var(--primary-light)', borderRadius: 8, marginTop: 16 }}>
+                  <p style={{ color: 'var(--primary)', fontWeight: 600, margin: 0 }}>
+                    ✅ You have already reviewed this course. Thank you for your feedback!
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -221,7 +262,6 @@ const CourseDetail = () => {
                 {course.price > 0 ? `₹${course.price}` : '🆓 Free'}
               </div>
 
-              {/* ✅ UPDATED: Show payment button for paid courses, free enroll for free courses */}
               {showEnrollButton ? (
                 enrolled ? (
                   <div>
@@ -253,7 +293,6 @@ const CourseDetail = () => {
                   </>
                 )
               ) : (
-                /* Admin / Instructor sees info box instead of enroll button */
                 <div style={{
                   background: 'var(--light-gray)', border: '1px solid var(--border)',
                   borderRadius: 8, padding: 16, textAlign: 'center',
@@ -274,7 +313,6 @@ const CourseDetail = () => {
               </ul>
             </div>
 
-            {/* Course Info */}
             <div className="course-info-card card">
               <h4>Course Info</h4>
               <div className="info-row"><span>📊 Level</span><span>{course.level}</span></div>

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { courseService, authService, reviewService } from '../services/api';
+import { courseService, authService, reviewService, assessmentService } from '../services/api';
 
 const AdminDashboard = () => {
-  const [tab, setTab]           = useState('courses');
-  const [courses, setCourses]   = useState([]);
-  const [users, setUsers]       = useState([]);
-  const [reviews, setReviews]   = useState([]);
-  const [loading, setLoading]   = useState(true);
+  const [tab, setTab] = useState('courses');
+  const [courses, setCourses] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [quizzes, setQuizzes] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearch] = useState('');
 
   useEffect(() => { loadData(); }, [tab]);
@@ -17,11 +18,10 @@ const AdminDashboard = () => {
     try {
       if (tab === 'courses') {
         const allCourses = [];
-        const seenIds    = new Set();
+        const seenIds = new Set();
 
-        // ✅ KEY FIX: Get all instructors → get their courses (includes PENDING ones)
         try {
-          const instrRes    = await authService.getUsersByRole('INSTRUCTOR');
+          const instrRes = await authService.getUsersByRole('INSTRUCTOR');
           const instructors = Array.isArray(instrRes.data) ? instrRes.data : [];
 
           const results = await Promise.allSettled(
@@ -41,9 +41,8 @@ const AdminDashboard = () => {
           });
         } catch { }
 
-        // Also add any approved courses not already included
         try {
-          const pubRes  = await courseService.getPublished();
+          const pubRes = await courseService.getPublished();
           const pubData = Array.isArray(pubRes.data) ? pubRes.data : [];
           pubData.forEach(c => {
             if (!seenIds.has(c.courseId)) {
@@ -65,10 +64,61 @@ const AdminDashboard = () => {
 
       } else if (tab === 'reviews') {
         const res = await reviewService.getPending();
-        setReviews(Array.isArray(res.data) ? res.data : []);
+        let pendingReviews = [];
+        if (Array.isArray(res.data)) {
+          pendingReviews = res.data;
+        } else if (res.data && res.data.$values) {
+          pendingReviews = res.data.$values;
+        }
+        setReviews(pendingReviews);
+        
+      } else if (tab === 'quizzes') {
+        try {
+          const allCourses = [];
+          const instrRes = await authService.getUsersByRole('INSTRUCTOR');
+          const instructors = Array.isArray(instrRes.data) ? instrRes.data : [];
+          
+          const results = await Promise.allSettled(
+            instructors.map(i => courseService.getByInstructor(i.userId))
+          );
+          
+          results.forEach(r => {
+            if (r.status === 'fulfilled') {
+              const data = Array.isArray(r.value.data) ? r.value.data : [];
+              allCourses.push(...data);
+            }
+          });
+          
+          const allQuizzes = [];
+          for (const course of allCourses) {
+            try {
+              const quizRes = await assessmentService.getByCourse(course.courseId);
+              let courseQuizzes = [];
+              if (Array.isArray(quizRes.data)) {
+                courseQuizzes = quizRes.data;
+              } else if (quizRes.data && quizRes.data.$values) {
+                courseQuizzes = quizRes.data.$values;
+              }
+              courseQuizzes.forEach(quiz => {
+                allQuizzes.push({
+                  ...quiz,
+                  courseTitle: course.title,
+                  courseId: course.courseId
+                });
+              });
+            } catch { }
+          }
+          setQuizzes(allQuizzes);
+        } catch (err) {
+          console.error('Failed to load quizzes:', err);
+          setQuizzes([]);
+        }
       }
-    } catch { }
-    finally { setLoading(false); }
+    } catch (err) {
+      console.error('Load error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleApprove = async (id) => {
@@ -112,31 +162,58 @@ const AdminDashboard = () => {
   const handleApproveReview = async (id) => {
     try {
       await reviewService.approve(id);
-      toast.success('Review approved!');
+      toast.success('✅ Review approved and visible on course page!');
       setReviews(prev => prev.filter(r => r.reviewId !== id));
-    } catch { toast.error('Failed'); }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to approve review');
+    }
   };
 
   const handleHideReview = async (id) => {
     try {
       await reviewService.hide(id);
-      toast.success('Review hidden');
+      toast.success('Review hidden from public view');
       setReviews(prev => prev.filter(r => r.reviewId !== id));
-    } catch { toast.error('Failed'); }
+    } catch { toast.error('Failed to hide review'); }
   };
 
-  const filteredUsers   = users.filter(u =>
+  const handleDeleteQuiz = async (quizId) => {
+    if (!window.confirm('Delete this quiz? This action cannot be undone.')) return;
+    try {
+      await assessmentService.deleteQuiz(quizId);
+      toast.success('Quiz deleted successfully');
+      setQuizzes(prev => prev.filter(q => q.quizId !== quizId));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete quiz');
+    }
+  };
+
+  const handlePublishQuiz = async (quizId) => {
+    try {
+      await assessmentService.publishQuiz(quizId);
+      toast.success('Quiz published!');
+      setQuizzes(prev => prev.map(q =>
+        q.quizId === quizId ? { ...q, isPublished: true } : q));
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to publish quiz');
+    }
+  };
+
+  const filteredUsers = users.filter(u =>
     u.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const pendingCourses  = courses.filter(c => c.isPublished && !c.isApproved);
+  const pendingCourses = courses.filter(c => c.isPublished && !c.isApproved);
   const approvedCourses = courses.filter(c => c.isApproved);
+  const pendingQuizzes = quizzes.filter(q => !q.isPublished);
+  const publishedQuizzes = quizzes.filter(q => q.isPublished);
 
   const stats = [
-    { icon: '📚', label: 'Total Courses',    value: courses.length,        color: 'var(--primary)'   },
-    { icon: '⏳', label: 'Pending Approval', value: pendingCourses.length, color: 'var(--warning)'   },
-    { icon: '👥', label: 'Total Users',      value: users.length,          color: 'var(--secondary)' },
-    { icon: '💬', label: 'Pending Reviews',  value: reviews.length,        color: 'var(--danger)'    },
+    { icon: '📚', label: 'Total Courses', value: courses.length, color: 'var(--primary)' },
+    { icon: '⏳', label: 'Pending Approval', value: pendingCourses.length, color: 'var(--warning)' },
+    { icon: '👥', label: 'Total Users', value: users.length, color: 'var(--secondary)' },
+    { icon: '💬', label: 'Pending Reviews', value: reviews.length, color: 'var(--danger)' },
+    { icon: '📋', label: 'Total Quizzes', value: quizzes.length, color: 'var(--primary)' },
   ];
 
   return (
@@ -144,13 +221,12 @@ const AdminDashboard = () => {
       <div className="page-header">
         <div className="container">
           <h1>⚙️ Admin Dashboard</h1>
-          <p>Manage courses, users and reviews across the platform</p>
+          <p>Manage courses, users, reviews and quizzes across the platform</p>
         </div>
       </div>
 
       <div className="container" style={{ padding: '32px 20px' }}>
 
-        {/* Stats */}
         <div className="stats-grid" style={{ marginBottom: 32 }}>
           {stats.map(s => (
             <div key={s.label} className="stat-card">
@@ -161,12 +237,12 @@ const AdminDashboard = () => {
           ))}
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', marginBottom: 24 }}>
+        <div style={{ display: 'flex', gap: 4, borderBottom: '2px solid var(--border)', marginBottom: 24, flexWrap: 'wrap' }}>
           {[
             { key: 'courses', label: '📚 Courses' },
-            { key: 'users',   label: '👥 Users'   },
-            { key: 'reviews', label: '💬 Reviews'  },
+            { key: 'users', label: '👥 Users' },
+            { key: 'reviews', label: '💬 Reviews' },
+            { key: 'quizzes', label: '📋 Quizzes' },
           ].map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               style={{
@@ -186,7 +262,6 @@ const AdminDashboard = () => {
 
         ) : tab === 'courses' ? (
           <div>
-            {/* Pending */}
             {pendingCourses.length > 0 ? (
               <div style={{ marginBottom: 32 }}>
                 <h3 style={{ color: 'var(--warning)', marginBottom: 16 }}>
@@ -209,10 +284,8 @@ const AdminDashboard = () => {
                           <td><strong>{c.price > 0 ? `₹${c.price}` : 'Free'}</strong></td>
                           <td>
                             <div style={{ display: 'flex', gap: 8 }}>
-                              <button className="btn btn-success btn-sm"
-                                onClick={() => handleApprove(c.courseId)}>✅ Approve</button>
-                              <button className="btn btn-danger btn-sm"
-                                onClick={() => handleReject(c.courseId)}>❌ Reject</button>
+                              <button className="btn btn-success btn-sm" onClick={() => handleApprove(c.courseId)}>✅ Approve</button>
+                              <button className="btn btn-danger btn-sm" onClick={() => handleReject(c.courseId)}>❌ Reject</button>
                             </div>
                           </td>
                         </tr>
@@ -222,16 +295,11 @@ const AdminDashboard = () => {
                 </div>
               </div>
             ) : (
-              <div style={{
-                background: '#f0fdf4', border: '1px solid #86efac',
-                borderRadius: 8, padding: 16, marginBottom: 24,
-                color: '#16a34a', fontWeight: 600
-              }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: 16, marginBottom: 24, color: '#16a34a', fontWeight: 600 }}>
                 ✅ No pending courses — all reviewed!
               </div>
             )}
 
-            {/* Approved */}
             <h3 style={{ marginBottom: 16 }}>✅ Approved Courses ({approvedCourses.length})</h3>
             <div className="table-wrap">
               <table className="table">
@@ -249,8 +317,7 @@ const AdminDashboard = () => {
                       <td><strong>{c.enrollmentCount || 0}</strong></td>
                       <td><strong>{c.price > 0 ? `₹${c.price}` : 'Free'}</strong></td>
                       <td>
-                        <button className="btn btn-warning btn-sm"
-                          onClick={() => handleReject(c.courseId)}>Revoke</button>
+                        <button className="btn btn-warning btn-sm" onClick={() => handleReject(c.courseId)}>Revoke</button>
                       </td>
                     </tr>
                   ))}
@@ -302,7 +369,7 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-        ) : (
+        ) : tab === 'reviews' ? (
           <div>
             {reviews.length === 0 ? (
               <div className="empty-state">
@@ -310,22 +377,94 @@ const AdminDashboard = () => {
                 <h3>No pending reviews</h3>
                 <p>All reviews have been moderated</p>
               </div>
-            ) : reviews.map(r => (
-              <div key={r.reviewId} className="card" style={{ padding: 20, marginBottom: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                      {'⭐'.repeat(r.rating)} Course ID: {r.courseId}
+            ) : (
+              reviews.map(review => (
+                <div key={review.reviewId} className="card" style={{ padding: 20, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                        {'⭐'.repeat(review.rating)} 
+                        <span style={{ marginLeft: 8, color: 'var(--gray)', fontSize: 13 }}>
+                          Course ID: {review.courseId} | Student ID: {review.studentId}
+                        </span>
+                      </div>
+                      <p style={{ color: 'var(--dark)', fontSize: 14, marginBottom: 8 }}>{review.comment}</p>
+                      <div style={{ fontSize: 12, color: 'var(--gray)' }}>
+                        Submitted: {new Date(review.createdAt).toLocaleString()}
+                      </div>
                     </div>
-                    <p style={{ color: 'var(--gray)', fontSize: 14 }}>{r.comment}</p>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-success btn-sm" onClick={() => handleApproveReview(r.reviewId)}>✅ Approve</button>
-                    <button className="btn btn-danger btn-sm"  onClick={() => handleHideReview(r.reviewId)}>🗑️ Hide</button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-success btn-sm" onClick={() => handleApproveReview(review.reviewId)}>
+                        ✅ Approve
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleHideReview(review.reviewId)}>
+                        🗑️ Hide
+                      </button>
+                    </div>
                   </div>
                 </div>
+              ))
+            )}
+          </div>
+
+        ) : (
+          // Quizzes Tab
+          <div>
+            {pendingQuizzes.length > 0 && (
+              <div style={{ marginBottom: 32 }}>
+                <h3 style={{ color: 'var(--warning)', marginBottom: 16 }}>
+                  📝 Draft Quizzes ({pendingQuizzes.length})
+                </h3>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr><th>Quiz Title</th><th>Course</th><th>Questions</th><th>Pass Score</th><th>Actions</th></tr>
+                    </thead>
+                    <tbody>
+                      {pendingQuizzes.map(q => (
+                        <tr key={q.quizId}>
+                          <td><strong>{q.title}</strong></td>
+                          <td><span className="badge badge-blue">{q.courseTitle || `Course #${q.courseId}`}</span></td>
+                          <td>{q.questionCount || q.questions?.length || 0}</td>
+                          <td>{q.passingScore}%</td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button className="btn btn-success btn-sm" onClick={() => handlePublishQuiz(q.quizId)}>📢 Publish</button>
+                              <button className="btn btn-danger btn-sm" onClick={() => handleDeleteQuiz(q.quizId)}>🗑️ Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            ))}
+            )}
+
+            <h3 style={{ marginBottom: 16 }}>✅ Published Quizzes ({publishedQuizzes.length})</h3>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr><th>Quiz Title</th><th>Course</th><th>Questions</th><th>Pass Score</th><th>Attempts</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {publishedQuizzes.length === 0 ? (
+                    <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray)' }}>No published quizzes yet</td></tr>
+                  ) : publishedQuizzes.map(q => (
+                    <tr key={q.quizId}>
+                      <td><strong>{q.title}</strong></td>
+                      <td><span className="badge badge-blue">{q.courseTitle || `Course #${q.courseId}`}</span></td>
+                      <td>{q.questionCount || q.questions?.length || 0}</td>
+                      <td>{q.passingScore}%</td>
+                      <td>{q.maxAttempts}</td>
+                      <td>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteQuiz(q.quizId)}>🗑️ Delete</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

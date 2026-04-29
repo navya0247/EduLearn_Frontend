@@ -23,14 +23,26 @@ const LEVEL_COLORS = {
 
 const CourseCard = ({ course }) => {
   const { courseId, title, category, level, price, thumbnailUrl, enrollmentCount } = course;
-  const { isAdmin, isInstructor } = useAuth();
+  const { isLoggedIn, isAdmin, isInstructor } = useAuth();
   const img = thumbnailUrl || CATEGORY_IMAGES[category] || CATEGORY_IMAGES['default'];
 
-  // ✅ Show "View Course" for Admin/Instructor, "Enroll Now" for Students/Guests
-  const ctaText = isAdmin() || isInstructor() ? 'View Course →' : 'Enroll Now →';
+  // ✅ Determine button text and link based on login status
+  let ctaText = 'View Course →';
+  let ctaLink = `/courses/${courseId}`;
+  
+  if (!isLoggedIn()) {
+    ctaText = '🔐 Login to Enroll';
+    ctaLink = '/login';
+  } else if (isAdmin() || isInstructor()) {
+    ctaText = '📖 View Course →';
+    ctaLink = `/courses/${courseId}`;
+  } else {
+    ctaText = price > 0 ? 'Enroll Now →' : 'Enroll for Free →';
+    ctaLink = `/courses/${courseId}`;
+  }
 
   return (
-    <Link to={`/courses/${courseId}`} className="course-card card">
+    <Link to={ctaLink} className="course-card card">
       <div className="course-thumb">
         <img src={img} alt={title} loading="lazy" />
         <div className="course-thumb-overlay" />

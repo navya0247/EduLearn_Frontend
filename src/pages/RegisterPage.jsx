@@ -5,9 +5,10 @@ import { authService } from '../services/api';
 import './AuthPages.css';
 
 const RegisterPage = () => {
-  const [form, setForm]       = useState({ fullName: '', email: '', password: '', role: 'STUDENT' });
+  const [form, setForm] = useState({ fullName: '', email: '', password: '', role: 'STUDENT' });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const navigate              = useNavigate();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,7 +26,6 @@ const RegisterPage = () => {
 
   return (
     <div className="auth-page">
-      {/* Left Banner */}
       <div className="auth-banner">
         <div className="auth-banner-bg"
           style={{ backgroundImage: `url(https://images.unsplash.com/photo-1571260899304-425eee4c7efc?w=800&auto=format&fit=crop&q=80)` }} />
@@ -44,7 +44,6 @@ const RegisterPage = () => {
         </div>
       </div>
 
-      {/* Right Form */}
       <div className="auth-form-panel">
         <div className="auth-form-box">
           <div className="auth-logo-small">E</div>
@@ -66,12 +65,24 @@ const RegisterPage = () => {
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
-              <input className="form-input" type="password" placeholder="Min 6 characters"
-                value={form.password}
-                onChange={e => setForm({ ...form, password: e.target.value })} />
+              <div className="password-wrapper">
+                <input 
+                  className="form-input password-input" 
+                  type={showPassword ? 'text' : 'password'} 
+                  placeholder="Min 6 characters"
+                  value={form.password}
+                  onChange={e => setForm({ ...form, password: e.target.value })} 
+                />
+                <button 
+                  type="button" 
+                  className="password-eye"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
             </div>
 
-            {/* Role Selector */}
             <div className="form-group">
               <label className="form-label">I want to join as</label>
               <div className="role-selector">
