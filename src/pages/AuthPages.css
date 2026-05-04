@@ -129,7 +129,7 @@
   overflow-y: auto;
 }
 
-/* Custom scrollbar for form box (only if needed) */
+/* Custom scrollbar for form box */
 .auth-form-box::-webkit-scrollbar {
   width: 4px;
 }

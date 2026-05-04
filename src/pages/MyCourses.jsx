@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { enrollmentService, courseService, progressService } from '../services/api';
+import { enrollmentService, courseService, progressService, lessonService } from '../services/api';
 import './MyCourses.css';
 
 const STATUS_COLOR = {
@@ -62,17 +62,19 @@ const MyCourses = () => {
           try {
             const cr = await courseService.getById(e.courseId);
             courseMap[e.courseId] = cr.data;
-            
-            // Fetch progress
+
+            // FIX: Fetch actual lesson count first, then get progress with correct totalLessons
             try {
-              const progressData = await progressService.getCourseProgress(e.courseId, 0);
-              progressMapTemp[e.courseId] = progressData.data?.progressPercent || e.progressPercent || 0;
+              const countRes = await lessonService.getCount(e.courseId);
+              const totalLessons = countRes.data?.totalLessons || 1;
+              const progressData = await progressService.getCourseProgress(e.courseId, totalLessons);
+              progressMapTemp[e.courseId] = progressData.data?.progressPercent ?? e.progressPercent ?? 0;
             } catch {
               progressMapTemp[e.courseId] = e.progressPercent || 0;
             }
-            
+
             // Check if certificate exists for completed courses
-            if (e.progressPercent === 100 || progressMapTemp[e.courseId] === 100) {
+            if (e.status === 'COMPLETED' || progressMapTemp[e.courseId] === 100) {
               try {
                 const certData = await progressService.getCertificate(e.courseId);
                 if (certData.data) {
@@ -85,7 +87,7 @@ const MyCourses = () => {
           } catch { }
         })
       );
-      
+
       setCourses(courseMap);
       setProgressMap(progressMapTemp);
       setCertificateMap(certificateMapTemp);
@@ -144,7 +146,7 @@ const MyCourses = () => {
               const title = course?.title || `Course #${e.courseId}`;
               const category = course?.category || '';
               const thumb = course?.thumbnailUrl || CATEGORY_IMAGES[category] || CATEGORY_IMAGES['default'];
-              const progress = progressMap[e.courseId] || e.progressPercent || 0;
+              const progress = progressMap[e.courseId] ?? e.progressPercent ?? 0;
               const isCompleted = e.status === 'COMPLETED' || progress === 100;
 
               return (
@@ -189,7 +191,7 @@ const MyCourses = () => {
                     </div>
 
                     <div className="my-course-footer" style={{ marginTop: 16 }}>
-                      {progress === 100 ? (
+                      {isCompleted ? (
                         <Link to="/certificates" className="btn btn-success btn-full btn-sm">
                           🏆 View Certificate
                         </Link>

@@ -25,7 +25,7 @@ import ProfilePage     from './pages/ProfilePage';
 import InstructorDashboard from './pages/InstructorDashboard';
 import CreateCourse        from './pages/CreateCourse';
 import ManageLessons       from './pages/ManageLessons';
-import ManageQuizzes       from './pages/ManageQuizzes';   // ✅ NEW - Quiz Management
+import ManageQuizzes       from './pages/ManageQuizzes';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
@@ -55,7 +55,7 @@ const AppRoutes = () => {
         <Route path="/my-courses"   element={<ProtectedRoute roles={['STUDENT']}><MyCourses /></ProtectedRoute>} />
         <Route path="/lesson/:id"   element={<ProtectedRoute roles={['STUDENT']}><LessonPlayer /></ProtectedRoute>} />
         <Route path="/quiz/:id"     element={<ProtectedRoute roles={['STUDENT']}><QuizPage /></ProtectedRoute>} />
-        <Route path="/quiz/course/:courseId" element={<ProtectedRoute roles={['STUDENT']}><QuizPage /></ProtectedRoute>} />  {/* ✅ NEW - Quiz by course */}
+        <Route path="/quiz/course/:courseId" element={<ProtectedRoute roles={['STUDENT']}><QuizPage /></ProtectedRoute>} />
         <Route path="/certificates" element={<ProtectedRoute roles={['STUDENT']}><CertificatePage /></ProtectedRoute>} />
         <Route path="/profile"      element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
@@ -66,7 +66,6 @@ const AppRoutes = () => {
           element={<ProtectedRoute roles={['INSTRUCTOR']}><CreateCourse /></ProtectedRoute>} />
         <Route path="/instructor/courses/:courseId/lessons"
           element={<ProtectedRoute roles={['INSTRUCTOR']}><ManageLessons /></ProtectedRoute>} />
-        {/* ✅ NEW — Manage quizzes for a specific course */}
         <Route path="/instructor/courses/:courseId/quizzes"
           element={<ProtectedRoute roles={['INSTRUCTOR']}><ManageQuizzes /></ProtectedRoute>} />
 

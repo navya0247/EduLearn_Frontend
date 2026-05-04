@@ -35,13 +35,13 @@ const LessonPlayer = () => {
         const data = Array.isArray(res.data) ? res.data : [];
         const sorted = data.sort((a, b) => a.displayOrder - b.displayOrder);
         setLessons(sorted);
-        
+
         if (sorted.length > 0) {
           setCurrentLesson(sorted[0]);
         }
 
         await fetchCompletedLessons(sorted.length);
-        
+
       } catch (err) {
         console.error('Load error:', err);
         toast.error('Could not load lessons');
@@ -56,20 +56,21 @@ const LessonPlayer = () => {
     try {
       const progressRes = await progressService.getLessonProgress(id);
       let completedIds = [];
-      
+
       // Handle different response formats
       if (Array.isArray(progressRes.data)) {
         completedIds = progressRes.data.filter(p => p.isCompleted).map(p => p.lessonId);
       } else if (progressRes.data && Array.isArray(progressRes.data.$values)) {
         completedIds = progressRes.data.$values.filter(p => p.isCompleted).map(p => p.lessonId);
       }
-      
+
       setCompletedLessons(completedIds);
       const percent = totalLessons > 0 ? Math.round((completedIds.length / totalLessons) * 100) : 0;
       setProgressPercent(percent);
-      
+
+      // FIX: Pass percent directly instead of relying on state which may not be updated yet
       if (percent === 100 && totalLessons > 0 && !certificateIssued) {
-        await checkAndIssueCertificate();
+        await checkAndIssueCertificateWithPercent(percent);
       }
     } catch (err) {
       console.error('Failed to fetch progress:', err);
@@ -83,37 +84,37 @@ const LessonPlayer = () => {
     }
   };
 
-  const checkAndIssueCertificate = async () => {
+  // FIX: New function that takes percent as parameter instead of reading from state
+  const checkAndIssueCertificateWithPercent = async (percent) => {
+    if (percent !== 100) return;
     try {
-      // Get course details
       const courseData = await courseService.getById(id);
       const courseName = courseData.data?.title || courseTitle || `Course ${id}`;
-      
+
       // Check if certificate already exists
       const certs = await progressService.getMyCertificates();
       let certificates = [];
-      
-      // Handle different response formats
+
       if (Array.isArray(certs.data)) {
         certificates = certs.data;
       } else if (certs.data && Array.isArray(certs.data.$values)) {
         certificates = certs.data.$values;
       }
-      
+
       const hasCert = certificates.some(c => c.courseId == id || c.courseId === parseInt(id));
-      
-      if (!hasCert && progressPercent === 100) {
-        // Issue certificate with ALL required fields
-        await progressService.issueCertificate({ 
+
+      if (!hasCert) {
+        // Issue certificate
+        await progressService.issueCertificate({
           courseId: parseInt(id),
           studentId: user?.userId,
-          studentName: user?.fullName || "Student",
+          studentName: user?.fullName || 'Student',
           courseName: courseName
         });
-        
+
         setCertificateIssued(true);
         toast.success('🏆 Certificate issued! Check your Certificates page');
-        
+
         // Update enrollment status to COMPLETED
         try {
           const enrollments = await enrollmentService.getMyCourses();
@@ -123,7 +124,7 @@ const LessonPlayer = () => {
           } else if (enrollments.data && Array.isArray(enrollments.data.$values)) {
             enrollmentList = enrollments.data.$values;
           }
-          
+
           const enrollment = enrollmentList.find(e => e.courseId == id);
           if (enrollment && enrollment.status !== 'COMPLETED') {
             await enrollmentService.complete(enrollment.enrollmentId);
@@ -135,6 +136,10 @@ const LessonPlayer = () => {
     } catch (err) {
       console.error('Certificate check failed:', err);
     }
+  };
+
+  const checkAndIssueCertificate = async () => {
+    await checkAndIssueCertificateWithPercent(progressPercent);
   };
 
   const fetchContentUrl = async (lessonId) => {
@@ -155,7 +160,7 @@ const LessonPlayer = () => {
     } else if (currentLesson) {
       setContentUrl(currentLesson.contentUrl);
     }
-    
+
     if (currentLesson && completedLessons.includes(currentLesson.lessonId)) {
       setCompleted(true);
     } else {
@@ -169,7 +174,7 @@ const LessonPlayer = () => {
       toast.info('Lesson already completed!');
       return;
     }
-    
+
     setCompleting(true);
     try {
       // 1. Mark lesson as complete
@@ -186,13 +191,13 @@ const LessonPlayer = () => {
       } else if (progressRes.data && Array.isArray(progressRes.data.$values)) {
         completedIds = progressRes.data.$values.filter(p => p.isCompleted).map(p => p.lessonId);
       }
-      
+
       setCompletedLessons(completedIds);
-      
+
       // 3. Calculate progress
       const newPercent = Math.round((completedIds.length / lessons.length) * 100);
       setProgressPercent(newPercent);
-      
+
       // 4. Update enrollment progress in backend
       try {
         const enrollments = await enrollmentService.getMyCourses();
@@ -209,16 +214,16 @@ const LessonPlayer = () => {
       } catch (e) {
         console.error('Failed to update enrollment progress:', e);
       }
-      
+
       setCompleted(true);
       localStorage.setItem(`progress_${id}`, JSON.stringify(completedIds));
-      
+
       toast.success(`✅ Lesson completed! Progress: ${newPercent}%`);
 
-      // 5. Auto-issue certificate when 100%
+      // 5. FIX: Auto-issue certificate when 100% — pass newPercent directly
       if (newPercent === 100) {
         toast.success('🎉 Congratulations! You completed the course!');
-        await checkAndIssueCertificate();
+        await checkAndIssueCertificateWithPercent(newPercent);
       }
 
       // 6. Move to next lesson
@@ -240,7 +245,7 @@ const LessonPlayer = () => {
 
   const renderContent = (lesson) => {
     if (!lesson) return null;
-    
+
     if (lesson.contentType === 'VIDEO' && loadingContent) {
       return (
         <div style={{ padding: 60, textAlign: 'center', minHeight: 400, background: '#1a1a2e' }}>
@@ -263,7 +268,7 @@ const LessonPlayer = () => {
       }
 
       const isYouTube = url.includes('youtube.com/embed') || url.includes('youtu.be') || url.includes('youtube.com/watch');
-      
+
       if (isYouTube) {
         let embedUrl = url;
         if (url.includes('watch?v=')) {
@@ -273,7 +278,7 @@ const LessonPlayer = () => {
           const videoId = url.split('youtu.be/')[1].split('?')[0];
           embedUrl = `https://www.youtube.com/embed/${videoId}`;
         }
-        
+
         return (
           <div style={{ position: 'relative', paddingBottom: '56.25%', height: 0, overflow: 'hidden', background: '#000' }}>
             <iframe
@@ -345,7 +350,7 @@ const LessonPlayer = () => {
           <p style={{ color: 'rgba(255,255,255,0.6)', marginBottom: 24 }}>
             Test your knowledge with this quiz
           </p>
-          <button 
+          <button
             className="btn btn-primary btn-lg"
             onClick={() => navigate(`/quiz/course/${id}`)}
           >
@@ -403,8 +408,8 @@ const LessonPlayer = () => {
             const isCompleted = completedLessons.includes(l.lessonId);
             return (
               <div key={l.lessonId}
-                onClick={() => { 
-                  setCurrentLesson(l); 
+                onClick={() => {
+                  setCurrentLesson(l);
                   setContentUrl(null);
                 }}
                 style={{
@@ -468,7 +473,7 @@ const LessonPlayer = () => {
 
               <div style={{ flexShrink: 0, paddingTop: 8 }}>
                 {currentLesson?.contentType === 'QUIZ_LINK' ? (
-                  <button 
+                  <button
                     className="btn btn-primary btn-lg"
                     onClick={() => navigate(`/quiz/course/${id}`)}
                   >
