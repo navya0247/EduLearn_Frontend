@@ -1,0 +1,74 @@
+.cd-banner {
+  height: 320px; background-size: cover; background-position: center;
+  position: relative; display: flex; align-items: flex-end;
+}
+.cd-banner-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%); }
+.cd-banner-content { position: relative; z-index: 1; padding-bottom: 32px; color: white; }
+.cd-title { font-size: 30px; color: white; margin-bottom: 8px; line-height: 1.3; }
+.cd-desc  { font-size: 15px; opacity: 0.85; margin-bottom: 12px; max-width: 600px; }
+.cd-meta  { display: flex; gap: 20px; font-size: 14px; flex-wrap: wrap; }
+
+.cd-body   { padding: 40px 20px; }
+.cd-layout { display: grid; grid-template-columns: 1fr 340px; gap: 32px; }
+.cd-main   { min-width: 0; }
+.cd-sidebar { }
+
+.cd-section { background: white; border-radius: var(--radius); border: 1px solid var(--border); padding: 28px; margin-bottom: 24px; }
+.cd-section h2 { font-size: 20px; margin-bottom: 20px; }
+
+/* Lessons */
+.lessons-list { display: flex; flex-direction: column; gap: 8px; }
+.lesson-row {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--light-gray); border-radius: var(--radius-sm);
+}
+.lesson-num  { width: 24px; height: 24px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.lesson-icon { font-size: 18px; }
+.lesson-title { flex: 1; font-weight: 600; font-size: 14px; }
+.lesson-dur  { font-size: 12px; color: var(--gray); }
+
+/* Rating Summary */
+.rating-summary { display: flex; gap: 32px; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--border); align-items: center; }
+.rating-big { text-align: center; }
+.rating-num { font-size: 52px; font-weight: 800; color: var(--dark); display: block; }
+.rating-bars { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+.rating-bar-row { display: flex; align-items: center; gap: 8px; }
+
+/* Reviews */
+.reviews-list { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.review-card  { padding: 16px; background: var(--light-gray); border-radius: var(--radius-sm); }
+.review-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.reviewer-avatar {
+  width: 36px; height: 36px; background: var(--primary); color: white;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+}
+.review-text { font-size: 14px; color: var(--dark); line-height: 1.6; }
+
+/* Review Form */
+.review-form-wrap { padding-top: 20px; border-top: 1px solid var(--border); }
+.review-form-wrap h3 { margin-bottom: 16px; }
+.star-selector { display: flex; gap: 8px; }
+.star-btn { font-size: 28px; background: none; border: none; cursor: pointer; color: var(--border); transition: color 0.15s; }
+.star-btn.active { color: #F59E0B; }
+
+/* Enroll Card */
+.enroll-card { padding: 24px; margin-bottom: 16px; position: sticky; top: 80px; }
+.enroll-price { font-size: 36px; font-weight: 800; color: var(--primary); margin-bottom: 16px; }
+.enroll-features { list-style: none; margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+.enroll-features li { font-size: 14px; color: var(--gray); }
+
+/* Course Info */
+.course-info-card { padding: 20px; }
+.course-info-card h4 { margin-bottom: 14px; }
+.info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+.info-row:last-child { border-bottom: none; }
+.info-row span:first-child { color: var(--gray); }
+.info-row span:last-child  { font-weight: 700; }
+
+@media (max-width: 768px) {
+  .cd-layout { grid-template-columns: 1fr; }
+  .cd-sidebar { order: -1; }
+  .cd-title { font-size: 22px; }
+  .rating-summary { flex-direction: column; }
+}

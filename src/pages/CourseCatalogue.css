@@ -1,0 +1,33 @@
+.catalogue-search {
+  display: flex; gap: 12px; max-width: 560px; margin-top: 20px;
+}
+.catalogue-search .form-input {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white; border-radius: var(--radius-sm);
+}
+.catalogue-search .form-input::placeholder { color: rgba(255,255,255,0.7); }
+.catalogue-search .form-input:focus { background: white; color: var(--dark); }
+
+.catalogue-body { padding: 32px 20px; }
+
+.filters-panel {
+  display: flex; gap: 32px; margin-bottom: 28px;
+  padding: 20px; background: white;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.filter-section { flex: 1; min-width: 200px; }
+.filter-title { font-size: 13px; font-weight: 800; color: var(--gray); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-pill {
+  padding: 5px 14px; border-radius: 20px; font-size: 13px;
+  font-weight: 600; cursor: pointer; border: 1.5px solid var(--border);
+  background: white; color: var(--gray); transition: all 0.15s;
+  font-family: 'Nunito', sans-serif;
+}
+.filter-pill:hover { border-color: var(--primary); color: var(--primary); }
+.filter-pill.active { background: var(--primary); border-color: var(--primary); color: white; }
+
+.results-header { margin-bottom: 20px; }
+.results-count { font-size: 14px; color: var(--gray); font-weight: 600; }
