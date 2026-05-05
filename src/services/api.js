@@ -37,7 +37,8 @@ export const paymentApi = api;
 
 // ── Auth Service ──────────────────────────────────────────────────────────────
 export const authService = {
-  register: (data) => api.post('/api/auth/register', data),
+  register: (data) => api.post(`/api/auth/register`, data),
+  googleLogin: (data) => api.post(`/api/auth/google-login`, data),
   login: (data) => api.post('/api/auth/login', data),
   logout: () => api.post('/api/auth/logout'),
   getProfile: (id) => api.get(`/api/auth/users/${id}/profile`),

@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import { useGoogleLogin } from '@react-oauth/google';
 import { authService } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import './AuthPages.css';
 
 const RegisterPage = () => {
-  const [form, setForm] = useState({ fullName: '', email: '', password: '', role: 'STUDENT' });
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [form, setForm]         = useState({ fullName: '', email: '', password: '', role: 'STUDENT' });
+  const [loading, setLoading]   = useState(false);
+  const [gLoading, setGLoading] = useState(false);
+  const navigate                = useNavigate();
+  const { login }               = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,6 +26,31 @@ const RegisterPage = () => {
       toast.error(err.response?.data?.message || 'Registration failed');
     } finally { setLoading(false); }
   };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setGLoading(true);
+      try {
+        const googleUserRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+        });
+        const googleUser = await googleUserRes.json();
+        const res = await authService.googleLogin({
+          email: googleUser.email,
+          fullName: googleUser.name,
+          googleId: googleUser.sub,
+          avatarUrl: googleUser.picture
+        });
+        const { token, userId, fullName, email, role } = res.data;
+        login(token, { userId, fullName, email, role });
+        toast.success(`Welcome to EduLearn, ${fullName}!`);
+        navigate('/');
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Google signup failed');
+      } finally { setGLoading(false); }
+    },
+    onError: () => toast.error('Google signup was cancelled or failed')
+  });
 
   return (
     <div className="auth-page">
@@ -50,6 +78,7 @@ const RegisterPage = () => {
           <h2 className="auth-title">Create Your Account</h2>
           <p className="auth-subtitle">Fill in your details to get started for free</p>
 
+          {/* Email/Password Form */}
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label className="form-label">Full Name</label>
@@ -65,24 +94,12 @@ const RegisterPage = () => {
             </div>
             <div className="form-group">
               <label className="form-label">Password</label>
-              <div className="password-wrapper">
-                <input 
-                  className="form-input password-input" 
-                  type={showPassword ? 'text' : 'password'} 
-                  placeholder="Min 6 characters"
-                  value={form.password}
-                  onChange={e => setForm({ ...form, password: e.target.value })} 
-                />
-                <button 
-                  type="button" 
-                  className="password-eye"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
+              <input className="form-input" type="password" placeholder="Min 6 characters"
+                value={form.password}
+                onChange={e => setForm({ ...form, password: e.target.value })} />
             </div>
 
+            {/* Role Selector */}
             <div className="form-group">
               <label className="form-label">I want to join as</label>
               <div className="role-selector">
@@ -107,6 +124,47 @@ const RegisterPage = () => {
               {loading ? 'Creating Account...' : '🚀 Create Free Account'}
             </button>
           </form>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+            <span style={{ color: '#9ca3af', fontSize: 13 }}>or continue with</span>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }} />
+          </div>
+
+          {/* Google Button — below form like real websites */}
+          <button
+            type="button"
+            onClick={() => handleGoogleLogin()}
+            disabled={gLoading}
+            style={{
+              width: '100%',
+              background: '#fff',
+              border: '1.5px solid #ddd',
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+              fontWeight: 600,
+              cursor: 'pointer',
+              borderRadius: 8,
+              padding: '12px 0',
+              fontSize: 15,
+              marginBottom: 20,
+              transition: 'box-shadow 0.2s',
+            }}
+            onMouseOver={e => e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)'}
+            onMouseOut={e => e.currentTarget.style.boxShadow = 'none'}
+          >
+            {gLoading ? 'Signing up...' : (
+              <>
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                  alt="Google" style={{ width: 20, height: 20 }} />
+                Sign up with Google
+              </>
+            )}
+          </button>
 
           <p className="auth-switch">
             Already have an account?{' '}

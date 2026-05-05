@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Layout
@@ -29,6 +30,9 @@ import ManageQuizzes       from './pages/ManageQuizzes';
 
 // Admin Pages
 import AdminDashboard from './pages/AdminDashboard';
+
+
+const GOOGLE_CLIENT_ID = '252929684759-dnrn26ophajpqstq842i9qnfive6mduo.apps.googleusercontent.com';
 
 // Protected Route
 const ProtectedRoute = ({ children, roles }) => {
@@ -82,12 +86,14 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-        <ToastContainer position="top-right" autoClose={3000} theme="colored" />
-      </BrowserRouter>
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+          <ToastContainer position="top-right" autoClose={3000} theme="colored" />
+        </BrowserRouter>
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
 
