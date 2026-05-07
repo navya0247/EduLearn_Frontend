@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // ── Single Gateway URL — routes all requests to correct microservice ──────────
-const GATEWAY = 'http://localhost:5000';
+const GATEWAY = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 const createAxios = () => {
   const instance = axios.create({ baseURL: GATEWAY });
