@@ -62,10 +62,9 @@ const CourseDetail = () => {
             setHasReviewed(alreadyReviewed);
           } catch { setHasReviewed(false); }
         }
-      } catch {
-        toast.error('Course not found');
-        navigate('/courses');
-      } finally { setLoading(false); }
+     } catch {
+         toast.error('Course is loading, please wait and refresh...');
+     }   finally { setLoading(false); }
     };
     load();
   }, [id]);
